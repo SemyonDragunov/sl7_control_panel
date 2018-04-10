@@ -218,32 +218,6 @@ function sl7_control_panel_block_info() {
 }
 
 /**
- * Implements hook_block_configure().
- */
-function sl7_control_panel_block_configure($delta = '') {
-  $form = array();
-
-  if ($delta == 'user_controls') {
-    $form['inline'] = array(
-      '#type' => 'checkbox',
-      '#title' => t('Inline?'),
-      '#default_value' => variable_get('sl7_user_controls_inline', 1),
-    );
-  }
-
-  return $form;
-}
-
-/**
- * Implements hook_block_save().
- */
-function sl7_control_panel_block_save($delta = '', $edit = array()) {
-  if ($delta == 'user_controls') {
-    variable_set('sl7_user_controls_inline', $edit['inline']);
-  }
-}
-
-/**
  * Implements hook_block_view().
  */
 function sl7_control_panel_block_view($delta = '') {
@@ -252,9 +226,7 @@ function sl7_control_panel_block_view($delta = '') {
   if ($delta == 'user_controls') {
     $block['subject'] = '';
     $block['content'] = array(
-      '#markup' => theme('sl7_user_controls', array(
-        'inline' => variable_get('sl7_user_controls_inline', 1),
-      )),
+      '#markup' => theme('sl7_user_controls'),
     );
   }
 
