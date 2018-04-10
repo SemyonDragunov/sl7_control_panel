@@ -4,7 +4,7 @@
  * @file
  *  SL7 Remote API.
  * 
- * @author Semyon Dragunov <samdragunov@gmail.com>
+ * @author Semyon Dragunov <sam.dragunov@gmail.com>
  * https://github.com/SemyonDragunov
  */
 
