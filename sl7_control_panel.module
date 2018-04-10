@@ -1,0 +1,320 @@
+<?php
+ 
+/**
+ * @file
+ * SL7 Control panel.
+ * 
+ * @author Semyon Dragunov <sam.dragunov@gmail.com>
+ * https://github.com/SemyonDragunov
+ */
+
+define('SL7_CONTROL_PANEL_ADMIN_PATH', 'admin/control-panel');
+
+require_once(__DIR__ . '/includes/sl7_date.inc');
+
+/**
+ * Implement hook_menu().
+ */
+function sl7_control_panel_menu() {
+    
+  $items[SL7_CONTROL_PANEL_ADMIN_PATH] = array(
+    'title' => t('Control panel'),
+    'access callback' => 'sl7_control_panel_access',
+    'access arguments' => array('view'),
+    'page callback' => 'sl7_control_panel_page',
+    'type' => MENU_NORMAL_ITEM,
+    'menu_name' => 'management',
+    'weight' => -20,
+  );
+
+  $items[SL7_CONTROL_PANEL_ADMIN_PATH . '/content'] = array(
+  	'title' => t('Materials'),
+    'position' => 'left',
+    'page callback' => 'system_admin_menu_block_page',
+    'access callback' => 'sl7_control_panel_access',
+    'access arguments' => array('view'),
+    'file path' => drupal_get_path('module', 'system'),
+    'file' => 'system.admin.inc',
+    'weight' => -20,
+  );
+
+  $items[SL7_CONTROL_PANEL_ADMIN_PATH . '/apps'] = array(
+  	'title' => t('Apps'),
+    'position' => 'left',
+    'page callback' => 'system_admin_menu_block_page',
+    'access callback' => 'sl7_control_panel_access',
+    'access arguments' => array('view'),
+    'file path' => drupal_get_path('module', 'system'),
+    'file' => 'system.admin.inc',
+  );
+
+  $items[SL7_CONTROL_PANEL_ADMIN_PATH . '/settings'] = array(
+  	'title' => t('Settings'),
+    'position' => 'right',
+    'page callback' => 'system_admin_menu_block_page',
+    'access callback' => 'sl7_control_panel_access',
+    'access arguments' => array('view'),
+    'file path' => drupal_get_path('module', 'system'),
+    'file' => 'system.admin.inc',
+    'weight' => -10,
+  );
+  $items[SL7_CONTROL_PANEL_ADMIN_PATH . '/settings/cache-clear'] = array(
+  	'title' => t('Clear cache'),
+  	'description' => t('Clear all cache on site.'),
+    'page callback' => 'drupal_flush_all_caches',
+    'page arguments' => array('admin'),
+    'access callback' => 'sl7_control_panel_access',
+    'access arguments' => array('cache_clear'),
+    'weight' => 30,
+  );
+
+  $items[SL7_CONTROL_PANEL_ADMIN_PATH . '/social'] = array(
+  	'title' => t('Social'),
+    'position' => 'right',
+    'page callback' => 'system_admin_menu_block_page',
+    'access callback' => 'sl7_control_panel_access',
+    'access arguments' => array('view'),
+    'file path' => drupal_get_path('module', 'system'),
+    'file' => 'system.admin.inc',
+    'weight' => 0,
+  );
+
+  $items['ajax/sl7/entityform/get'] = array(
+    'page callback' => 'sl7_control_panel_entityform_ajax_get',
+    'access callback' => TRUE,
+    'type' => MENU_CALLBACK,
+  );
+  $items['ajax/sl7/entityform/submit'] = array(
+    'page callback' => 'sl7_control_panel_entityform_ajax_submit',
+    'access callback' => TRUE,
+    'type' => MENU_CALLBACK,
+    'delivery callback' => 'ajax_deliver',
+  );
+    
+  return $items;
+}
+
+/**
+ * Implement hook_admin_paths().
+ */
+function sl7_control_panel_admin_paths() {
+  return array(
+    SL7_CONTROL_PANEL_ADMIN_PATH => TRUE,
+    SL7_CONTROL_PANEL_ADMIN_PATH . '/*' => TRUE,
+  );
+}
+
+/**
+ * Implement hook_permission().
+ */
+function sl7_control_panel_permission() {
+  return array(
+  	'sl7_control_panel view' => array('title' => t('Access for control panel.')),
+  		'sl7_control_panel cache_clear' => array('title' => t('Access to clear cache on control panel.')),
+  );
+}
+
+function sl7_control_panel_access($op, $account = NULL) {
+  if (user_access("sl7_control_panel $op", $account)) {
+    return TRUE;
+  }
+
+  return FALSE;
+}
+
+/**
+ * Implements hook_theme().
+ */
+function sl7_control_panel_theme() {
+  $items = array(
+    'sl7_user_controls' => array(
+      'template' => 'templates/sl7-user-controls',
+      'variables' => array(
+        'inline' => NULL,
+      ),
+    ),
+  );
+
+  return $items;
+}
+
+/**
+ * Implements hook_preprocess_html().
+ */
+function sl7_control_panel_preprocess_html(&$vars) {
+  // Add css class if exist control panel.
+  if (module_exists('sl7_control_panel') && $vars['logged_in'] == TRUE && user_access('sl7_control_panel view')) {
+    $vars['classes_array'][] = "control-panel";
+  }
+}
+
+/**
+ * Implements hook_preprocess_page().
+ */
+function sl7_control_panel_preprocess_page(&$variables) {
+  $site_frontpage = variable_get('site_frontpage');
+
+  // Add meta-tags on front page.
+  if (drupal_is_front_page() && ('node' == $site_frontpage || '' == $site_frontpage)) {
+    $element = array(
+      '#type' => 'markup',
+      '#markup' => render($variables['page']['content']['metatags']),
+    );
+    drupal_add_html_head($element, 'front-metatags');
+  }
+}
+
+function sl7_control_panel_page() {
+  $blocks = array();
+  $control_panel_path = SL7_CONTROL_PANEL_ADMIN_PATH;
+  if ($admin = db_query("SELECT menu_name, mlid FROM {menu_links} WHERE link_path = '{$control_panel_path}' AND module = 'system'")->fetchAssoc()) {
+    $result = db_query("
+      SELECT m.*, ml.*
+      FROM {menu_links} ml
+      INNER JOIN {menu_router} m ON ml.router_path = m.path
+      WHERE ml.link_path <> 'admin/help' AND menu_name = :menu_name AND ml.plid = :mlid AND hidden = 0", $admin, array('fetch' => PDO::FETCH_ASSOC));
+    foreach ($result as $item) {
+      _menu_link_translate($item);
+      if (!$item['access']) {
+        continue;
+      }
+      if (!empty($item['localized_options']['attributes']['title'])) {
+        $item['description'] = $item['localized_options']['attributes']['title'];
+        unset($item['localized_options']['attributes']['title']);
+      }
+      $block = $item;
+      $block['content'] = '';
+      $block['content'] .= theme('admin_block_content', array('content' => system_admin_menu_block($item)));
+      if (!empty($block['content'])) {
+        $block['show'] = TRUE;
+      }
+
+      $blocks[(50000 + $item['weight']) . ' ' . $item['title'] . ' ' . $item['mlid']] = $block;
+    }
+  }
+  if ($blocks) {
+    ksort($blocks);
+    return theme('admin_page', array('blocks' => $blocks));
+  }
+  else {
+    return t('You do not have any administrative items.');
+  }
+}
+
+/**
+ * Implements hook_block_info().
+ */
+function sl7_control_panel_block_info() {
+  $blocks['user_controls'] = array(
+    'info' => t('User controls'),
+    'status' => 1,
+    'region' => 'user_controls',
+    'weight' => 1,
+    'cache' => DRUPAL_CACHE_GLOBAL,
+    'visibility' => BLOCK_VISIBILITY_NOTLISTED,
+  );
+
+  return $blocks;
+}
+
+/**
+ * Implements hook_block_configure().
+ */
+function sl7_control_panel_block_configure($delta = '') {
+  $form = array();
+
+  if ($delta == 'user_controls') {
+    $form['inline'] = array(
+      '#type' => 'checkbox',
+      '#title' => t('Inline?'),
+      '#default_value' => variable_get('sl7_user_controls_inline', 1),
+    );
+  }
+
+  return $form;
+}
+
+/**
+ * Implements hook_block_save().
+ */
+function sl7_control_panel_block_save($delta = '', $edit = array()) {
+  if ($delta == 'user_controls') {
+    variable_set('sl7_user_controls_inline', $edit['inline']);
+  }
+}
+
+/**
+ * Implements hook_block_view().
+ */
+function sl7_control_panel_block_view($delta = '') {
+  $block = array();
+
+  if ($delta == 'user_controls') {
+    $block['subject'] = '';
+    $block['content'] = array(
+      '#markup' => theme('sl7_user_controls', array(
+        'inline' => variable_get('sl7_user_controls_inline', 1),
+      )),
+    );
+  }
+
+  return $block;
+}
+
+/**
+ * AJAX form loading through JS.
+ *
+ * AJAX form loading.
+ * @code
+ *  $.get('/ajax/sl7/entityform/get', { name: 'sl7_call_me' }).done(function(form) {
+ *    // Code after get. form - inputs from form.
+ *  });
+ * @endcode
+ *
+ * Callback for altering AJAX form before process.
+ * @code
+ *  $.get('/ajax/sl7/entityform/get', { name: 'sl7_call_me', callback: 'MYMODULE_ajax_form_alter' }).done(function(form) {
+ *    // Code.
+ *  });
+ * @endcode
+ *
+ * @internal param $get_parameters
+ */
+function sl7_control_panel_entityform_ajax_get() {
+  $form_id = $_GET['name'];
+
+  module_load_include('inc', 'entityform', 'entityform.admin');
+  $entityform_name = $form_id;
+  $entityform = entityform_form_wrapper(entityform_empty_load($entityform_name), 'submit', 'embedded');
+
+  if (!empty($_GET['callback'])) {
+    $callback = $_GET['callback'];
+
+    if (function_exists($callback)) {
+      $callback($entityform);
+    }
+  }
+
+  drupal_add_library('system', 'jquery.form');
+  drupal_add_library('system', 'drupal.form');
+  drupal_add_library('system', 'drupal.ajax');
+  drupal_add_library('system', 'drupal.progress');
+
+  $html = render($entityform);
+  print $html;
+  drupal_exit();
+}
+
+/**
+ * Ajax submit Entityform.
+ */
+function sl7_control_panel_entityform_ajax_submit() {
+  module_load_include('inc', 'entityform', 'entityform.admin');
+  list($form, $form_state) = ajax_get_form();
+  drupal_process_form($form['#form_id'], $form, $form_state);
+
+  $commands = array();
+  $commands[] = ajax_command_html('.messages', theme('status_messages'));
+
+  return array('#type' => 'ajax', '#commands' => $commands);
+}

@@ -1,0 +1,28 @@
+name = Control Panel
+description = Control Panel.
+package = SL7
+version = 7.x-1.0
+core = 7.x
+php = 5.4
+
+configure = admin/control-panel
+
+files[] = api/SL7ApiFile.inc
+files[] = api/SL7ApiUser.inc
+files[] = api/SL7ApiLang.inc
+files[] = api/SL7ApiArray.inc
+files[] = api/SL7ApiForm.inc
+files[] = api/SL7ApiRemote.inc
+files[] = api/SL7ApiDebug.inc
+files[] = api/SL7Pattern.inc
+
+dependencies[] = contextual
+dependencies[] = block
+dependencies[] = menu
+dependencies[] = image
+dependencies[] = file
+dependencies[] = field
+dependencies[] = options
+dependencies[] = path
+dependencies[] = number
+dependencies[] = list

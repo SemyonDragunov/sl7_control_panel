@@ -1,0 +1,34 @@
+<?php
+/**
+ * @author Semyon Dragunov <sam.dragunov@gmail.com>
+ * https://github.com/SemyonDragunov
+ */
+
+function sl7_control_panel_install() {
+  // Update module weight.
+  db_update('system')
+    ->fields(array('weight' => '-4'))
+    ->condition('name', 'sl7_control_panel', '=')
+    ->execute();
+
+  // Fix bug #1387268
+  if (!db_table_exists('cache_entity_profile2')) {
+    $schema = drupal_get_schema_unprocessed('system', 'cache');
+    $schema['description'] = "Cache table used to store profile2 entity records.";
+    db_create_table('cache_entity_profile2', $schema);
+  }
+
+  // Clear all cache.
+  drupal_flush_all_caches();
+}
+
+function sl7_control_panel_uninstall() {
+  $result = db_select('variable', 'v')
+    ->fields('v', array('name'))
+    ->condition('name', 'sl7_control_panel_%', 'LIKE')
+    ->execute();
+
+  foreach ($result as $row) {
+    variable_del($row->name);
+  }
+}
