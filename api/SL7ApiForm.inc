@@ -6,6 +6,7 @@
  */
 
 class SL7ApiForm {
+
   /**
    * Return rendered form.
    *
