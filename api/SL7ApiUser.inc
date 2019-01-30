@@ -133,7 +133,7 @@ class SL7ApiUser {
     }
 
     if ($send) {
-      drupal_mail('user', 'register_no_approval_required', $mail, NULL, array('account' => $user), variable_get('site_mail'));
+      drupal_mail('user', 'register_no_approval_required', $mail, NULL, array('account' => $save_user), variable_get('site_mail'));
     }
 
     return $save_user->uid;
